@@ -1,4 +1,4 @@
-This is a Pytorch implementation of the [*Mutual Information Neural Estimator*](https://arxiv.org/abs/1801.04062). 
+This is a python package implementing the [*Mutual Information Neural Estimator*](https://arxiv.org/abs/1801.04062). 
 
 ## Installation
 
