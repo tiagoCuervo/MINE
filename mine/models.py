@@ -45,7 +45,7 @@ class MINE(nn.Module):
         samplesJoint = Variable(torch.from_numpy(np.concatenate((xSamplesJoint, ySamplesJoint), axis=1))
                                 .type(torch.FloatTensor), requires_grad=False)
         samplesMarginal = Variable(torch.from_numpy(np.concatenate((xSamplesMarginal, ySamplesMarginal), axis=1))
-                                .type(torch.FloatTensor), requires_grad=False)
+                                   .type(torch.FloatTensor), requires_grad=False)
 
         trainData = RegressionDataset(samplesJoint, samplesMarginal)
         trainLoader = DataLoader(dataset=trainData, batch_size=int(batchSize), shuffle=True)
@@ -55,8 +55,9 @@ class MINE(nn.Module):
         mi = 0.0
         for epoch in range(numEpochs):
             for batchJoint, batchMarginal in trainLoader:
-                scoreJoint = self(batchJoint[:, 0], batchJoint[:, 1])
-                scoreMarginal = self(batchMarginal[:, 0], batchMarginal[:, 1])
+                scoreJoint = self(batchJoint[:, :batchJoint.shape[1] // 2], batchJoint[:, batchJoint.shape[1] // 2:])
+                scoreMarginal = self(batchMarginal[:, :batchMarginal.shape[1] // 2],
+                                     batchMarginal[:, batchMarginal.shape[1] // 2:])
                 if self.divergenceMeasure == 'JS':
                     Ep = (np.log(2.0) - F.softplus(-scoreJoint)).mean()
                     En = (F.softplus(-scoreMarginal) + scoreMarginal - np.log(2.0)).mean()
@@ -67,7 +68,8 @@ class MINE(nn.Module):
                     raise NotImplementedError
                 mi = Ep - En
                 if self.divergenceMeasure == 'KL':
-                    movingAverage = (1 - smoothCoeff) * movingAverage + smoothCoeff * torch.mean(torch.exp(scoreMarginal))
+                    movingAverage = (1 - smoothCoeff) * movingAverage + smoothCoeff * torch.mean(
+                        torch.exp(scoreMarginal))
                     loss = -(torch.mean(scoreJoint) - (1 / movingAverage.mean()).detach() * torch.mean(
                         torch.exp(scoreMarginal)))
                 else:
@@ -76,5 +78,5 @@ class MINE(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.step()
-            miHistory.append(mi.detach().numpy())
+            miHistory.append(np.asscalar(mi.detach().numpy()))
         return np.asscalar(mi.data.numpy()), np.array(miHistory)

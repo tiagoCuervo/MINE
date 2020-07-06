@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mine import MINE
+from sklearn.feature_selection import mutual_info_regression
 
 # Generates data by sampling from two correlated Gaussian variables
 dim = 1
@@ -28,6 +29,7 @@ estimatedMI, estimationHistory = miEstimator.calcMI(xSamples, ySamples, xSamples
                                                     batchSize=sampleSize, numEpochs=2000)
 
 print("Real MI: {}, estimated MI: {}".format(mi, estimatedMI))
+print("Estimated MI: {}".format(estimatedMI))
 epochs = np.arange(len(estimationHistory))
 plt.plot(epochs, estimationHistory)
 plt.plot(epochs, mi * np.ones(len(estimationHistory)))
