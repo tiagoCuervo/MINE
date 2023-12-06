@@ -7,7 +7,6 @@ from torch.utils.data import DataLoader
 from mine.utils import logSumExp, RegressionDataset
 
 
-# noinspection PyArgumentList,PsyTypeChecker,PyUnresolvedReferences,PyTypeChecker
 class MINE(nn.Module):
     def __init__(self, inputSpaceDim, archSpecs, divergenceMeasure='KL', learningRate=1e-4):
         super().__init__()
@@ -26,7 +25,8 @@ class MINE(nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=learningRate)
 
     def forward(self, x, y):
-        x = torch.relu(self.inputHeadX(torch.unsqueeze(x, 1)) + self.inputHeadY(torch.unsqueeze(y, 1)))
+        x = torch.relu(self.inputHeadX(torch.unsqueeze(x, 1)) +
+                       self.inputHeadY(torch.unsqueeze(y, 1)))
         for l in range(len(self.layers)):
             activationFunction = self.activationFunctions[l + 1]
             x = self.layers[l](x) if activationFunction.lower() == 'linear' \
@@ -48,22 +48,26 @@ class MINE(nn.Module):
                                    .type(torch.FloatTensor), requires_grad=False)
 
         trainData = RegressionDataset(samplesJoint, samplesMarginal)
-        trainLoader = DataLoader(dataset=trainData, batch_size=int(batchSize), shuffle=True)
+        trainLoader = DataLoader(
+            dataset=trainData, batch_size=int(batchSize), shuffle=True)
 
         miHistory = []
         movingAverage = 1.0
         mi = 0.0
         for epoch in range(numEpochs):
             for batchJoint, batchMarginal in trainLoader:
-                scoreJoint = self(batchJoint[:, :batchJoint.shape[1] // 2], batchJoint[:, batchJoint.shape[1] // 2:])
+                scoreJoint = self(
+                    batchJoint[:, :batchJoint.shape[1] // 2], batchJoint[:, batchJoint.shape[1] // 2:])
                 scoreMarginal = self(batchMarginal[:, :batchMarginal.shape[1] // 2],
                                      batchMarginal[:, batchMarginal.shape[1] // 2:])
                 if self.divergenceMeasure == 'JS':
                     Ep = (np.log(2.0) - F.softplus(-scoreJoint)).mean()
-                    En = (F.softplus(-scoreMarginal) + scoreMarginal - np.log(2.0)).mean()
+                    En = (F.softplus(-scoreMarginal) +
+                          scoreMarginal - np.log(2.0)).mean()
                 elif self.divergenceMeasure == 'KL':
                     Ep = scoreJoint.mean()
-                    En = logSumExp(scoreMarginal, 0) - np.log(scoreMarginal.size(0))
+                    En = logSumExp(scoreMarginal, 0) - \
+                        np.log(scoreMarginal.size(0))
                 else:
                     raise NotImplementedError
                 mi = Ep - En
@@ -78,5 +82,5 @@ class MINE(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.step()
-            miHistory.append(np.asscalar(mi.detach().numpy()))
-        return np.asscalar(mi.data.numpy()), np.array(miHistory)
+            miHistory.append(mi.item())
+        return mi.item(), np.array(miHistory)
