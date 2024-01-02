@@ -7,9 +7,19 @@ from torch.utils.data import DataLoader
 from mine.utils import logSumExp, RegressionDataset
 
 
-# noinspection PyArgumentList,PsyTypeChecker,PyUnresolvedReferences,PyTypeChecker
 class MINE(nn.Module):
     def __init__(self, inputSpaceDim, archSpecs, divergenceMeasure='KL', learningRate=1e-4):
+        """Initializes the MINE model.
+
+        Args:
+          inputSpaceDim: The dimension of the input space. 
+          archSpecs: Architecture specifications containing layer sizes and activation functions.
+          divergenceMeasure: The divergence measure to use, either 'KL' or 'JS'.
+          learningRate: The learning rate for the Adam optimizer.
+
+        The constructor initializes the neural network layers, activation functions, 
+        divergence measure, and Adam optimizer according to the provided specifications.
+        """
         super().__init__()
         layerSizes = archSpecs['layerSizes'] + [1]
         self.activationFunctions = archSpecs['activationFunctions']
@@ -26,7 +36,8 @@ class MINE(nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=learningRate)
 
     def forward(self, x, y):
-        x = torch.relu(self.inputHeadX(torch.unsqueeze(x, 1)) + self.inputHeadY(torch.unsqueeze(y, 1)))
+        x = torch.relu(self.inputHeadX(torch.unsqueeze(x, 1)) +
+                       self.inputHeadY(torch.unsqueeze(y, 1)))
         for l in range(len(self.layers)):
             activationFunction = self.activationFunctions[l + 1]
             x = self.layers[l](x) if activationFunction.lower() == 'linear' \
@@ -35,7 +46,15 @@ class MINE(nn.Module):
 
     def calcMI(self, xSamplesJoint, ySamplesJoint, xSamplesMarginal, ySamplesMarginal, numEpochs=500,
                batchSize=None, smoothCoeff=0.01):
+        '''
+            xSamplesJoint: Samples from the joint distribution p(x,y)
+            ySamplesJoint: Samples from the joint distribution p(x,y)
+            xSamplesMarginal: Samples from the marginal distribution p(x)
+            ySamplesMarginal: Samples from the marginal distribution p(y)
+            The mutual information is then calculated as:MI(X,Y) = Ep(x,y)[f(x,y)] - Ep(x)p(y)[f(x,y)]Where f(x,y) is the output of the trained network.
+        '''
         numSamplesJoint = xSamplesJoint.shape[0]
+        # assert return true or false
         assert ySamplesJoint.shape[0] == numSamplesJoint
         assert ySamplesMarginal.shape[0] == xSamplesMarginal.shape[0]
 
@@ -48,22 +67,26 @@ class MINE(nn.Module):
                                    .type(torch.FloatTensor), requires_grad=False)
 
         trainData = RegressionDataset(samplesJoint, samplesMarginal)
-        trainLoader = DataLoader(dataset=trainData, batch_size=int(batchSize), shuffle=True)
+        trainLoader = DataLoader(
+            dataset=trainData, batch_size=int(batchSize), shuffle=True)
 
         miHistory = []
         movingAverage = 1.0
         mi = 0.0
         for epoch in range(numEpochs):
             for batchJoint, batchMarginal in trainLoader:
-                scoreJoint = self(batchJoint[:, :batchJoint.shape[1] // 2], batchJoint[:, batchJoint.shape[1] // 2:])
+                scoreJoint = self(
+                    batchJoint[:, :batchJoint.shape[1] // 2], batchJoint[:, batchJoint.shape[1] // 2:])
                 scoreMarginal = self(batchMarginal[:, :batchMarginal.shape[1] // 2],
                                      batchMarginal[:, batchMarginal.shape[1] // 2:])
                 if self.divergenceMeasure == 'JS':
                     Ep = (np.log(2.0) - F.softplus(-scoreJoint)).mean()
-                    En = (F.softplus(-scoreMarginal) + scoreMarginal - np.log(2.0)).mean()
+                    En = (F.softplus(-scoreMarginal) +
+                          scoreMarginal - np.log(2.0)).mean()
                 elif self.divergenceMeasure == 'KL':
                     Ep = scoreJoint.mean()
-                    En = logSumExp(scoreMarginal, 0) - np.log(scoreMarginal.size(0))
+                    En = logSumExp(scoreMarginal, 0) - \
+                        np.log(scoreMarginal.size(0))
                 else:
                     raise NotImplementedError
                 mi = Ep - En
@@ -78,5 +101,5 @@ class MINE(nn.Module):
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.step()
-            miHistory.append(np.asscalar(mi.detach().numpy()))
-        return np.asscalar(mi.data.numpy()), np.array(miHistory)
+            miHistory.append(mi.item())
+        return mi.item(), np.array(miHistory)
