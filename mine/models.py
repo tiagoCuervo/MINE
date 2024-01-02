@@ -9,6 +9,17 @@ from mine.utils import logSumExp, RegressionDataset
 
 class MINE(nn.Module):
     def __init__(self, inputSpaceDim, archSpecs, divergenceMeasure='KL', learningRate=1e-4):
+        """Initializes the MINE model.
+
+        Args:
+          inputSpaceDim: The dimension of the input space. 
+          archSpecs: Architecture specifications containing layer sizes and activation functions.
+          divergenceMeasure: The divergence measure to use, either 'KL' or 'JS'.
+          learningRate: The learning rate for the Adam optimizer.
+
+        The constructor initializes the neural network layers, activation functions, 
+        divergence measure, and Adam optimizer according to the provided specifications.
+        """
         super().__init__()
         layerSizes = archSpecs['layerSizes'] + [1]
         self.activationFunctions = archSpecs['activationFunctions']
@@ -35,7 +46,15 @@ class MINE(nn.Module):
 
     def calcMI(self, xSamplesJoint, ySamplesJoint, xSamplesMarginal, ySamplesMarginal, numEpochs=500,
                batchSize=None, smoothCoeff=0.01):
+        '''
+            xSamplesJoint: Samples from the joint distribution p(x,y)
+            ySamplesJoint: Samples from the joint distribution p(x,y)
+            xSamplesMarginal: Samples from the marginal distribution p(x)
+            ySamplesMarginal: Samples from the marginal distribution p(y)
+            The mutual information is then calculated as:MI(X,Y) = Ep(x,y)[f(x,y)] - Ep(x)p(y)[f(x,y)]Where f(x,y) is the output of the trained network.
+        '''
         numSamplesJoint = xSamplesJoint.shape[0]
+        # assert return true or false
         assert ySamplesJoint.shape[0] == numSamplesJoint
         assert ySamplesMarginal.shape[0] == xSamplesMarginal.shape[0]
 
